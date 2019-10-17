@@ -17,4 +17,5 @@ class APA102():
         self.bright_percent = bright_percent
 
     def show(self):
-        logging.debug("APA SHOW: %s/%s/%s/%s", self.led_num, self.red, self.green, self.blue)
+        # logging.debug("APA SHOW: %s/%s/%s/%s", self.led_num, self.red, self.green, self.blue)
+        pass

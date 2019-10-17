@@ -6,27 +6,24 @@ except ImportError:
 
 import time
 import threading
-try:
-    import queue as Queue
-except ImportError:
-    import Queue as Queue
+import queue
 
 
 class Blinker:
-    PIXELS_N = 3
+    LEDS_NUM = 3
 
     def __init__(self):
-        self.basis = [0] * 3 * self.PIXELS_N
+        self.basis = [0] * 3 * self.LEDS_NUM
         self.basis[0] = 2
         self.basis[3] = 1
         self.basis[4] = 1
         self.basis[7] = 2
 
-        self.colors = [0] * 3 * self.PIXELS_N
-        self.dev = apaDevice.APA102(num_led=self.PIXELS_N)
+        self.colors = [0] * 3 * self.LEDS_NUM
+        self.device = apaDevice.APA102(num_led=self.LEDS_NUM)
 
         self.next = threading.Event()
-        self.queue = Queue.Queue()
+        self.queue = queue.Queue()
         self.thread = threading.Thread(target=self._run)
         self.thread.daemon = True
         self.thread.start()
@@ -119,10 +116,10 @@ class Blinker:
         # self._off()
 
     def _off(self):
-        self.write([0] * 3 * self.PIXELS_N)
+        self.write([0] * 3 * self.LEDS_NUM)
 
     def write(self, colors):
-        for i in range(self.PIXELS_N):
-            self.dev.set_pixel(i, int(colors[3*i]), int(colors[3*i + 1]), int(colors[3*i + 2]))
+        for i in range(self.LEDS_NUM):
+            self.device.set_pixel(i, int(colors[3 * i]), int(colors[3 * i + 1]), int(colors[3 * i + 2]))
 
-        self.dev.show()
+        self.device.show()
