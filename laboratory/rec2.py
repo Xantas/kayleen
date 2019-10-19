@@ -1,44 +1,16 @@
-import pyaudio
-import wave
-import numpy as np
+import subprocess
+import os
+import time
+import signal
 
-RESPEAKER_RATE = 16000
-RESPEAKER_CHANNELS = 2
-RESPEAKER_WIDTH = 2
-# run getDeviceInfo.py to get index
-RESPEAKER_INDEX = 2  # refer to input device id
-CHUNK = 1024
-RECORD_SECONDS = 3
-WAVE_OUTPUT_FILENAME = "output2.wav"
+#proc_args = ['arecord', '-D' , 'dmic_sv' , '-c2' , '-r' , '44100' , '-f' , 'S32_LE' , '-t' , 'wav' , '-V' , 'mono' , '-v' , 'subprocess1.wav']
+proc_args = ['arecord', '--quiet', '-D' , 'plughw:1' , '-c2' , '-r' , '16000' , '-f' , 'S32_LE' , '-t' , 'wav' , '-V' , 'stereo' , 'subprocess1.wav']
+rec_proc = subprocess.Popen(proc_args, shell=False, preexec_fn=os.setsid)
+# print("startRecordingArecord()> rec_proc pid= " + str(rec_proc.pid))
+# print("startRecordingArecord()> recording started")
 
-p = pyaudio.PyAudio()
-
-stream = p.open(
-            rate=RESPEAKER_RATE,
-            format=p.get_format_from_width(RESPEAKER_WIDTH),
-            channels=RESPEAKER_CHANNELS,
-            input=True,
-            input_device_index=RESPEAKER_INDEX,)
-
-print("* recording")
-
-frames = []
-
-for i in range(0, int(RESPEAKER_RATE / CHUNK * RECORD_SECONDS)):
-    data = stream.read(CHUNK)
-    # extract channel 0 data from 2 channels, if you want to extract channel 1, please change to [1::2]
-    a = np.fromstring(data,dtype=np.int16)[0::2]
-    frames.append(a.tostring())
-
-print("* done recording")
-
-stream.stop_stream()
-stream.close()
-p.terminate()
-
-wf = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
-wf.setnchannels(1)
-wf.setsampwidth(p.get_sample_size(p.get_format_from_width(RESPEAKER_WIDTH)))
-wf.setframerate(RESPEAKER_RATE)
-wf.writeframes(b''.join(frames))
-wf.close()
+time.sleep(3)
+os.killpg(rec_proc.pid, signal.SIGTERM)
+rec_proc.terminate()
+rec_proc = None
+print("stopRecordingArecord()> Recording stopped")

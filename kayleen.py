@@ -1,9 +1,11 @@
+import sys
 import enum
 import queue
 import threading
 import time
 import logging
 import signal
+from skills.commands import CommandFactory
 import skills.commands as cm
 import skills.sentences as txt
 from skills.text_to_speech import TextToSpeech
@@ -19,23 +21,25 @@ class KayleenStatus(enum.Enum):
 
 
 class Kayleen:
-    def __init__(self) -> None:
+    def __init__(self, develop_mode: bool) -> None:
+
         signal.signal(signal.SIGINT, self.__shut_down)
         signal.signal(signal.SIGTERM, self.__shut_down)
 
+        self.develop_mode = develop_mode
         self.status = KayleenStatus.sleeping
 
         self.language = cm.Lang.PL
+        self.cmFactory = CommandFactory(self.language)
 
-        self.command_queue = queue.Queue()
+        self.async_command_queue = queue.Queue()
 
-        self.next = threading.Event()
-        self.speak_finished_event = threading.Event()
-        self.listen_finished_event = threading.Event()
-
-        self.text_to_speech_processor = TextToSpeech(self.speak_finished_event)
+        self.text_to_speech_processor = TextToSpeech(
+            develop_mode
+        )
         self.voice_commands_recognizer = VoiceCommandRecognizer(
-            self.command_queue, self.listen_finished_event
+            self.async_command_queue,
+            develop_mode
         )
         self.blinker = Blinker()
 
@@ -47,31 +51,19 @@ class Kayleen:
         self.kill_now = True
 
     def wake_up(self):
-        self.command_queue.put(cm.Command(self.__wake_up))
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                txt.get_sentence(txt.SentenceKey.hello),
-                self.language
-            )
+        logging.info("Zaczynam się budzić ...")
+        self.status = KayleenStatus.initialising
+        self.blinker.wakeup()
+        self.__sync_say(txt.get_sentence(txt.SentenceKey.hello))
+        self.status = KayleenStatus.working
+        self.async_command_queue.put(
+            self.cmFactory.create_call_method_command(self.__listen_to_my_voice)
         )
-        self.blinker.listen()
-        self.speak_finished_event.clear()
-        self.speak_finished_event.wait()
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                txt.get_sentence(txt.SentenceKey.im_listening),
-                self.language
-            )
-        )
-        self.speak_finished_event.clear()
-        self.speak_finished_event.wait()
-        self.blinker.off()
-        self.command_queue.put(cm.Command(self.__listen_to_my_voice))
 
     def shut_down(self):
-        self.command_queue.put(cm.Command(self.__shut_down))
+        self.async_command_queue.put(
+            self.cmFactory.create_call_method_command(self.__shut_down)
+        )
 
     def is_sleeping(self):
         return self.status is KayleenStatus.sleeping
@@ -84,82 +76,61 @@ class Kayleen:
 
     def __run(self):
         while True:
-            command = self.command_queue.get()
+            command = self.async_command_queue.get()
+            if command.is_blocking:
+                command.blocking_event.clear()
+
             if isinstance(command, cm.VoiceRecognizedCommand):
                 self.__process_voice_command(command)
             else:
                 command.method(command)
 
+            if command.is_blocking:
+                command.blocking_event.wait()
+
     def __shut_down(self, signum, frame):
         logging.info("Znikam, pa ...")
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                txt.get_sentence(txt.SentenceKey.shut_down),
-                self.language
-            )
-        )
-        self.blinker.off()
+        self.__sync_say(txt.get_sentence(txt.SentenceKey.shut_down))
         time.sleep(4)
         self.status = KayleenStatus.killed
 
-    def __wake_up(self, command: cm.Command):
-        logging.info("Zaczynam się budzić ...")
-        self.status = KayleenStatus.initialising
-        self.blinker.wakeup()
-        time.sleep(2)
-        self.status = KayleenStatus.working
-
-    def __go_to_sleep(self, command: cm.Command):
+    def __go_to_sleep(self, command: cm.CallMethodCommand):
         logging.info("Rozpoczynam usypianie Kaylen")
         self.status = KayleenStatus.sleeping
 
-    def __say(self, command: cm.SpeechCommand):
-        self.text_to_speech_processor.speech_text(command.text_to_speech, command.language)
+    def __sync_say(self, text_to_speak: str):
+        self.blinker.listen()
+        command = self.cmFactory.create_speech_command(text_to_speak)
+        self.text_to_speech_processor.speech_text(command)
+        command.blocking_event.wait()
+        self.blinker.off()
 
-    def __listen_to_my_voice(self, command: cm.Command):
+    def __listen_to_my_voice(self, command: cm.CallMethodCommand):
+        self.__sync_say(txt.get_sentence(txt.SentenceKey.im_listening))
+
         self.blinker.speak()
-        self.listen_finished_event.clear()
-        self.voice_commands_recognizer.listen_me()
-        self.listen_finished_event.wait()
+        self.voice_commands_recognizer.listen_me(self.language)
         self.blinker.off()
 
     def __process_voice_command(self, command: cm.VoiceRecognizedCommand):
         logging.info("przetwarzam: " + command.recognized_text)
-        self.blinker.listen()
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                txt.get_sentence(txt.SentenceKey.what_im_recognized),
-                self.language
-            )
-        )
-        self.blinker.listen()
-        self.speak_finished_event.wait()
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                command.recognized_text,
-                self.language
-            )
-        )
-        self.blinker.listen()
-        self.speak_finished_event.wait()
-        self.command_queue.put(
-            cm.SpeechCommand(
-                self.__say,
-                txt.get_sentence(txt.SentenceKey.unknown_command),
+        self.__sync_say(txt.get_sentence(txt.SentenceKey.what_i_recognized))
+        self.__sync_say(command.recognized_text)
 
-                self.language
-            )
-        )
-
+        self.__sync_say(txt.get_sentence(txt.SentenceKey.unknown_command))
 
 
 def main():
     logging.basicConfig(format="%(asctime)s: %(message)s", level=logging.INFO, datefmt="%H:%M:%S")
-    logging.getLogger().setLevel(logging.DEBUG)
-    kayleen = Kayleen()
+    # logging.getLogger().setLevel(logging.DEBUG)
+
+    develop_mode = False
+
+    for arg in sys.argv:
+        if arg == '--dev':
+            develop_mode = True
+
+    kayleen = Kayleen(develop_mode)
     kayleen.wake_up()
 
     while True:

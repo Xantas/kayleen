@@ -1,84 +1,112 @@
-import pyaudio
-import wave
+import signal
 import os
 import platform
 import time
 import logging
 import queue
 import threading
-import skills.commands as cm
 import uuid
-from skills.commands import VoiceRecognizedCommand
+import subprocess
+from skills.commands import CommandFactory
+from skills.sentences import Lang
 from definitions import VOICE_INPUT_FILES_DIR
+from google.cloud import speech_v1
+from google.cloud.speech_v1 import enums
+import io
 
 SAMPLE_RATE = 16000
-CHANNELS = 2
-FRAME_WIDTH = 2
-# run device/respeaker_device_idx.py to get index of device
-RESPEAKER_DEVICE_INDEX = 2
-CHUNK = 1024
+SAMPLE_FORMAT = 'S16_LE'
+CHANNELS = 1
 RECORD_SECONDS = 5
 
 
+class GoogleVoiceRecognizer:
+    def __init__(self, develop_mode: bool):
+        self.develop_mode = develop_mode
+
+    def sample_recognize(self, local_file_path, lang: Lang):
+        """
+        Transcribe a short audio file using synchronous speech recognition
+
+        Args:
+          local_file_path Path to local audio file, e.g. /path/audio.wav
+        """
+        if self.develop_mode:
+            return 'moja komenda testowa'
+
+        client = speech_v1.SpeechClient()
+
+        logging.debug("Próba rozpoznania mowy w pliku : %s", local_file_path)
+
+        # The language of the supplied audio
+        language_code = str(lang.value)
+
+        # Sample rate in Hertz of the audio data sent
+        sample_rate_hertz = SAMPLE_RATE
+
+        # Encoding of audio data sent. This sample sets this explicitly.
+        # This field is optional for FLAC and WAV audio formats.
+        encoding = enums.RecognitionConfig.AudioEncoding.LINEAR16
+        config = {
+            "language_code": language_code,
+            "sample_rate_hertz": sample_rate_hertz,
+            "encoding": encoding,
+        }
+        with io.open(local_file_path, "rb") as f:
+            content = f.read()
+        audio = {"content": content}
+
+        recognized_text = None
+
+        response = client.recognize(config, audio)
+        for result in response.results:
+            # First alternative is the most probable result
+            alternative = result.alternatives[0]
+            logging.debug(u"Rozpoznany tekst: {}".format(alternative.transcript))
+            recognized_text = alternative.transcript
+
+        return recognized_text
+
+
 class VoiceCommandRecognizer:
-    def __init__(self, voice_command_queue: queue.Queue, listen_finished_event: threading.Event()):
-        self.listen_finished_event = listen_finished_event
+    def __init__(
+            self,
+            voice_command_queue: queue.Queue,
+            develop_mode: bool
+    ):
+        self.develop_mode = develop_mode
         self.voice_command_queue = voice_command_queue
-        self.nextEventPresent = threading.Event()
-        self.queue = queue.Queue()
-        self.thread = threading.Thread(target=self.__run)
-        self.thread.daemon = True
-        self.thread.start()
 
-    def listen_me(self):
+        self.googleRecognizer = GoogleVoiceRecognizer(develop_mode)
+
+    def listen_me(self, language: Lang):
         logging.info('Słucham ...')
-        self.listen_finished_event.clear()
-        time.sleep(2)
-        self.voice_command_queue.put(VoiceRecognizedCommand('moja super komenda'))
-        self.listen_finished_event.set()
 
-    def __run(self):
-        while True:
-            command = self.queue.get()  # type: cm.Command
-            command.method(command)
+        recognized_text = self.googleRecognizer.sample_recognize(
+            self.__record_voice(),
+            language
+        )
 
-    def __record_voice(self, command: cm.Command):
+        self.voice_command_queue.put(
+            CommandFactory.create_voice_recognized_command(recognized_text)
+        )
+
+    def __record_voice(self) -> str:
         if platform.system() == 'Darwin':
-            print("MAC")
+            return os.path.join(VOICE_INPUT_FILES_DIR, 'test_command.wav')
         else:
-            self.__record_voice_raspi(command)
+            return self.__record_voice_raspi()
 
-    def __record_voice_raspi(self, command: cm.Command) -> str:
-        p = pyaudio.PyAudio()
-
-        stream = p.open(
-            rate=SAMPLE_RATE,
-            format=p.get_format_from_width(FRAME_WIDTH),
-            channels=CHANNELS,
-            input=True,
-            input_device_index=RESPEAKER_DEVICE_INDEX, )
-
-        print("* recording")
-
-        frames = []
-
-        for i in range(0, int(SAMPLE_RATE / CHUNK * RECORD_SECONDS)):
-            data = stream.read(CHUNK)
-            frames.append(data)
-
-        print("* done recording")
-
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
-
+    def __record_voice_raspi(self) -> str:
         file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
-
-        wf = wave.open(file_name, 'wb')
-        wf.setnchannels(CHANNELS)
-        wf.setsampwidth(p.get_sample_size(p.get_format_from_width(FRAME_WIDTH)))
-        wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(b''.join(frames))
-        wf.close()
-
+        proc_args = ['arecord', '--quiet', '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r', str(SAMPLE_RATE),
+                     '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
+        recording_process = subprocess.Popen(proc_args, shell=False, preexec_fn=os.setsid)
+        time.sleep(RECORD_SECONDS)
+        os.killpg(recording_process.pid, signal.SIGTERM)
+        recording_process.terminate()
+        recording_process = None
+        print(" ")  # potrzebne do usuniecia blokad wierszy terminala przez arecord
+        print(" ")
+        logging.debug("Próbka głosowa nagrana")
         return file_name
