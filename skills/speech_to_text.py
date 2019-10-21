@@ -4,7 +4,6 @@ import platform
 import time
 import logging
 import queue
-import threading
 import uuid
 import subprocess
 from skills.commands import CommandFactory
@@ -31,8 +30,6 @@ class GoogleVoiceRecognizer:
         Args:
           local_file_path Path to local audio file, e.g. /path/audio.wav
         """
-        if self.develop_mode:
-            return 'moja komenda testowa'
 
         client = speech_v1.SpeechClient()
 
@@ -68,28 +65,52 @@ class GoogleVoiceRecognizer:
         return recognized_text
 
 
+class VoiceCommandPayload:
+    def __init__(self, recognized_text: str):
+        self.recognized_text = recognized_text
+
+
 class VoiceCommandRecognizer:
     def __init__(
             self,
-            voice_command_queue: queue.Queue,
+            command_bus: queue.Queue,
             develop_mode: bool
     ):
         self.develop_mode = develop_mode
-        self.voice_command_queue = voice_command_queue
+        self.command_bus = command_bus
 
         self.googleRecognizer = GoogleVoiceRecognizer(develop_mode)
 
     def listen_me(self, language: Lang):
         logging.info('Słucham ...')
 
-        recognized_text = self.googleRecognizer.sample_recognize(
-            self.__record_voice(),
-            language
+        if self.develop_mode:
+            recognized_text = input('Wpisz tresc komendy ...')
+        else:
+            recognized_text = self.googleRecognizer.sample_recognize(
+                self.__record_voice(),
+                language
+            )
+
+        if recognized_text is None:
+            command = CommandFactory.create_empty_voice_cmd()
+        else:
+            command = CommandFactory.create_voice_recognized_cmd(
+                VoiceCommandPayload(recognized_text)
+            )
+
+        self.command_bus.put(
+            command
         )
 
-        self.voice_command_queue.put(
-            CommandFactory.create_voice_recognized_command(recognized_text)
-        )
+    def sync_listen_me(self, language: Lang):
+        if self.develop_mode:
+            return input("Wpisz tresc komendy synchronicznej ...")
+        else:
+            return self.googleRecognizer.sample_recognize(
+                self.__record_voice(),
+                language
+            )
 
     def __record_voice(self) -> str:
         if platform.system() == 'Darwin':

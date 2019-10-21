@@ -11,5 +11,5 @@ def setup(button, gpoin):
 
 
 def input(button):
-    return False
+    return True
 
