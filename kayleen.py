@@ -18,6 +18,7 @@ from skills.speech_to_text import VoiceCommandRecognizer
 from skills.speech_to_text import VoiceCommandPayload
 from skills.blinker import Blinker
 from skills.speech_command_processor import Reactor
+from skills.voices import AvailableVoices
 
 try:
     import RPi.GPIO as GPIO
@@ -111,13 +112,13 @@ class Kayleen:
         )
 
     def __shut_down(self, signum=None, frame=None):
-        logging.info("Znikam, pa ...")
+        logging.info("Przechodzę w niebyt ...")
         self.__sync_say(SentenceKey.shut_down)
         time.sleep(2)
         self.status = KayleenStatus.killed
 
     def __go_to_sleep(self):
-        logging.info("Kaylen zasypia")
+        logging.info("Usypiam")
         self.status = KayleenStatus.sleeping
 
     def __sync_pure_text_say(self, text: str):
@@ -131,7 +132,7 @@ class Kayleen:
         self.blinker.off()
 
     def __sync_say(self, sentence: SentenceKey):
-        self.__sync_pure_text_say(txt.get_sentence(sentence))
+        self.__sync_pure_text_say(txt.get_sentence(sentence, self.language, self.text_to_speech_processor.voice))
 
     def __listen_to_my_voice(self):
         self.__sync_say(SentenceKey.im_listening)
@@ -151,6 +152,7 @@ class Kayleen:
 
     def __process_voice_command(self, payload: VoiceCommandPayload):
         logging.info("Przetwarzam: " + payload.recognized_text)
+        self.blinker.think()
         self.__sync_say(SentenceKey.what_i_recognized)
         self.__sync_pure_text_say(payload.recognized_text)
         self.reactor.run_task_from_recognized_text(payload.recognized_text)
@@ -161,14 +163,32 @@ class Kayleen:
 
     def __confirm_command(self, command: CommandBusCommand):
         self.__sync_say(SentenceKey.confirm)
-        recognized_text = self.__syc_listen_to_my_voice()
 
-        if self.reactor.is_confirmed(recognized_text):
+        if self.reactor.is_confirmed(self.__syc_listen_to_my_voice()):
             command.confirm()
         else:
             command.decline()
 
         self.async_command_bus.put(command)
+
+    def __change_voice_command(self):
+        self.__sync_say(SentenceKey.list_voices)
+
+        for voice in AvailableVoices:
+            self.__sync_pure_text_say(voice.name)
+            self.__sync_pure_text_say(str(voice.value))
+
+        choice = self.reactor.choose_voice_from_text(
+            self.__syc_listen_to_my_voice()
+        )
+
+        if choice is None:
+            self.__sync_say(SentenceKey.unrecognized_voice_model)
+        else:
+            self.text_to_speech_processor.change_voice_to(choice)
+            self.__sync_say(SentenceKey.present_voice)
+
+        self.__go_to_sleep()
 
     def __handle(self, command: CommandBusCommand):
         if command.confirmation_status is CommandConfirmationStatus.unprocessed:
@@ -186,14 +206,17 @@ class Kayleen:
         elif command.command_type is SystemCommandsDefinition.listen:
             self.__listen_to_my_voice()
             command.blocking_event.set()
-        elif command.command_type is SystemCommandsDefinition.empty_voice:
+        elif command.command_type is SystemCommandsDefinition.empty_voice_cmd:
             self.__process_empty_voice_command()
-        elif command.command_type is SystemCommandsDefinition.recognized_voice:
+        elif command.command_type is SystemCommandsDefinition.recognized_voice_cmd:
             self.__process_voice_command(command.payload)
-        elif command.command_type is SystemCommandsDefinition.unrecognized_voice:
+        elif command.command_type is SystemCommandsDefinition.unrecognized_voice_cmd:
             self.__unrecognized_voice_command()
         elif command.command_type is SystemCommandsDefinition.confirm:
             self.__confirm_command(command.payload)
+        elif command.command_type is SystemCommandsDefinition.change_voice:
+            self.__change_voice_command()
+            command.blocking_event.set()
 
 
 def main():

@@ -11,16 +11,23 @@ from google.cloud import texttospeech
 from definitions import VOICE_OUTPUT_FILES_DIR
 from pathlib import Path
 
+from skills.voices import AvailableVoices, available_voices
+
 
 class TextToSpeech:
 
     def __init__(self, develop_mode: bool):
         self.develop_mode = develop_mode
 
+        self.voice = AvailableVoices.kayleen
+
         self.queue = queue.Queue()
         self.thread = threading.Thread(target=self.__run)
         self.thread.daemon = True
         self.thread.start()
+
+    def change_voice_to(self, voice: AvailableVoices):
+        self.voice = voice
 
     def speech_text(self, command: SpeechCommand):
         self.queue.put(command)
@@ -44,13 +51,11 @@ class TextToSpeech:
         else:
             os.system('mpg123 -q ' + filename)
 
-    @staticmethod
-    def __get_mp3_file_name(command: SpeechCommand):
-        text = command.text_to_speech + command.language.value
-        return hashlib.md5(text.encode('utf-8')).hexdigest() + '.mp3'
+    def __get_mp3_file_name(self, command: SpeechCommand):
+        text = ''.join([command.text_to_speech, command.language.value, str(self.voice.value)])
+        return hashlib.sha1(text.encode('utf-8')).hexdigest() + '.mp3'
 
-    @staticmethod
-    def __synthesize_text(command: SpeechCommand, file_name: str):
+    def __synthesize_text(self, command: SpeechCommand, file_name: str):
         client = texttospeech.TextToSpeechClient()
 
         input_text = texttospeech.types.SynthesisInput(text=command.text_to_speech)
@@ -58,7 +63,7 @@ class TextToSpeech:
         voice = texttospeech.types.VoiceSelectionParams(
             language_code=command.language.value,
             ssml_gender=texttospeech.enums.SsmlVoiceGender.FEMALE,
-            name="pl-PL-Standard-E"
+            name=available_voices[self.voice]
         )
 
         audio_config = texttospeech.types.AudioConfig(

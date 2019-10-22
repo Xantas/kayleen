@@ -8,9 +8,10 @@ class SystemCommandsDefinition(enum.Enum):
     confirm = 1
     say = 2
     listen = 3
-    empty_voice = 4
-    recognized_voice = 5
-    unrecognized_voice = 6
+    empty_voice_cmd = 4
+    recognized_voice_cmd = 5
+    unrecognized_voice_cmd = 6
+    change_voice = 7
 
 
 class CommandConfirmationStatus(enum.Enum):
@@ -61,6 +62,14 @@ class SpeechCommand(BaseCommand):
 
 class CommandFactory:
     @staticmethod
+    def create_change_voice_cmd():
+        return CommandBusCommand(
+            command_type=SystemCommandsDefinition.change_voice,
+            blocking_event=Event(),
+            is_blocking=True
+        )
+
+    @staticmethod
     def create_exit_cmd():
         return CommandBusCommand(
             command_type=SystemCommandsDefinition.exit,
@@ -80,7 +89,7 @@ class CommandFactory:
     @staticmethod
     def create_empty_voice_cmd():
         return CommandBusCommand(
-            command_type=SystemCommandsDefinition.empty_voice,
+            command_type=SystemCommandsDefinition.empty_voice_cmd,
             blocking_event=Event(),
             is_blocking=False
         )
@@ -88,7 +97,7 @@ class CommandFactory:
     @staticmethod
     def create_voice_recognized_cmd(payload: object):
         return CommandBusCommand(
-            command_type=SystemCommandsDefinition.recognized_voice,
+            command_type=SystemCommandsDefinition.recognized_voice_cmd,
             blocking_event=Event(),
             is_blocking=False,
             payload=payload
@@ -97,7 +106,7 @@ class CommandFactory:
     @staticmethod
     def create_unrecognized_voice_cmd():
         return CommandBusCommand(
-            command_type=SystemCommandsDefinition.unrecognized_voice,
+            command_type=SystemCommandsDefinition.unrecognized_voice_cmd,
             blocking_event=Event(),
             is_blocking=False
         )

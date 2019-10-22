@@ -2,11 +2,10 @@ import queue
 from skills.commands import CommandFactory
 from skills.commands import SystemCommandsDefinition
 from skills.commands import Lang
+from skills.voices import AvailableVoices
 
 
 class Reactor:
-    confirmation_sentences = ('tak', 'ok', 'yes', 'confirm', 'potwierdzam')
-
     def __init__(
             self,
             command_bus: queue.Queue,
@@ -20,6 +19,7 @@ class Reactor:
         self.voice_commands_definitions = {
             'wyjdź': self.__exit_cmd,
             'zakończ': self.__exit_cmd,
+            'głos': self.__change_voice_cmd,
         }
 
     def run_task_from_recognized_text(self, recognized_text: str):
@@ -33,21 +33,26 @@ class Reactor:
         self.command_bus.put(CommandFactory.create_unrecognized_voice_cmd())
 
     def is_confirmed(self, recognized_text: str):
-        test = recognized_text in self.confirmation_sentences
+        confirmation_sentences = ('tak', 'ok', 'yes', 'confirm', 'potwierdzam')
+        test = recognized_text in confirmation_sentences
         return test
 
-    def __exit_cmd(self):
-        self.command_bus.put(
-            CommandFactory.create_exit_cmd()
-        )
+    def choose_voice_from_text(self, recognized_text: str):
+        text_for_voices = {
+            AvailableVoices.kayleen: (AvailableVoices.kayleen.name, '1', 'jeden', 'one', 'pierwszy', 'first'),
+            AvailableVoices.sam: (AvailableVoices.sam.name, '2', 'dwa', 'two', 'drugi', 'second'),
+        }
+
+        for voice in AvailableVoices:
+            if recognized_text in text_for_voices[voice]:
+                return voice
+
+        return None
 
     def __exit_cmd(self):
         self.command_bus.put(CommandFactory.create_exit_cmd())
 
-    def __confirm_cmd(self):
-        pass
-        # self.command_bus.put(
-        #     CommandFactory.create_speech_command(SentenceKey.hello, self.language))
+    def __change_voice_cmd(self):
+        self.command_bus.put(CommandFactory.create_change_voice_cmd())
 
-        #self.command_bus.put(CommandFactory.create_defined_command(SystemCommandsDefinition.confirm))
 
