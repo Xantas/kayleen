@@ -10,6 +10,8 @@ from skills.commands import CommandBusCommand
 from skills.commands import CommandFactory
 from skills.commands import SystemCommandsDefinition
 from skills.commands import CommandConfirmationStatus
+from skills.hotword_detector import SnowboyDecoder
+from skills.player import Player
 from skills.sentences import SentenceKey
 import skills.commands as cm
 import skills.sentences as txt
@@ -70,13 +72,10 @@ class Kayleen:
         self.thread.start()
 
         self.__sync_say(SentenceKey.hello)
-        self.__sync_say(SentenceKey.push_button)
+        self.__sync_say(SentenceKey.wake_me_up)
 
     def __run(self):
         while True:
-            if self.status is KayleenStatus.sleeping:
-                self.__wait_for_trigger()
-
             command = self.async_command_bus.get()
             if command.is_blocking:
                 command.blocking_event.clear()
@@ -87,22 +86,13 @@ class Kayleen:
                 command.blocking_event.wait()
 
     def __exit_gracefully(self, signum, frame):
-        self.kill_now = True
+        self.__shut_down()
 
-    def __wait_for_trigger(self):
-        if platform.system() == 'Darwin':
-            input("wcisnij enter")
-        else:
-            while True:
-                state = GPIO.input(BUTTON)
-                if not state:
-                    break
-                time.sleep(0.5)
+    def is_killed(self):
+        return self.status is KayleenStatus.killed
 
-        self.status = KayleenStatus.initialising
-        self.__wake_up()
-
-    def __wake_up(self):
+    def wake_up(self):
+        # Player.play_ding_signal()
         logging.info("Zaczynam się budzić ...")
         self.status = KayleenStatus.initialising
         self.blinker.wakeup()
@@ -137,6 +127,7 @@ class Kayleen:
     def __listen_to_my_voice(self):
         self.__sync_say(SentenceKey.im_listening)
         self.blinker.speak()
+        Player.play_dong_signal()
         self.voice_commands_recognizer.listen_me(self.language)
         self.blinker.off()
 
@@ -231,10 +222,13 @@ def main():
 
     kayleen = Kayleen(develop_mode)
 
-    while True:
-        time.sleep(0.5)
-        if kayleen.status is KayleenStatus.killed:
-            break
+    detector = SnowboyDecoder(sensitivity=0.5)
+    print('Listening... Press Ctrl+C to exit')
+
+    detector.start(detected_callback=kayleen.wake_up,
+                   interrupt_check=kayleen.is_killed,
+                   sleep_time=0.03)
+    detector.terminate()
 
 
 if __name__ == '__main__':

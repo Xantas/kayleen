@@ -11,6 +11,7 @@ from google.cloud import texttospeech
 from definitions import VOICE_OUTPUT_FILES_DIR
 from pathlib import Path
 
+from skills.player import Player
 from skills.voices import AvailableVoices, available_voices
 
 
@@ -41,15 +42,8 @@ class TextToSpeech:
         if not (Path(file_name)).is_file():
             self.__synthesize_text(command, file_name)
 
-        self.__play_mp3_file(file_name)
+        Player.play_mp3_file(file_name)
         command.blocking_event.set()
-
-    def __play_mp3_file(self, filename: str):
-        if platform.system() == 'Darwin':
-            sound = AudioSegment.from_file(filename, format="mp3")
-            play(sound)
-        else:
-            os.system('mpg123 -q ' + filename)
 
     def __get_mp3_file_name(self, command: SpeechCommand):
         text = ''.join([command.text_to_speech, command.language.value, str(self.voice.value)])
