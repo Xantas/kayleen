@@ -97,7 +97,7 @@ class Kayleen:
                 state = GPIO.input(BUTTON)
                 if not state:
                     break
-                time.sleep(0.5)
+                time.sleep(0.03)
 
         self.status = KayleenStatus.initialising
         self.__wake_up()
@@ -232,7 +232,7 @@ def main():
     kayleen = Kayleen(develop_mode)
 
     while True:
-        time.sleep(0.5)
+        time.sleep(1)
         if kayleen.status is KayleenStatus.killed:
             break
 
