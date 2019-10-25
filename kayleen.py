@@ -66,6 +66,7 @@ class Kayleen:
             develop_mode
         )
         self.blinker = Blinker()
+        self.detector = SnowboyDecoder(sensitivity=0.5)
 
         self.thread = threading.Thread(target=self.__run)
         self.thread.daemon = True
@@ -91,9 +92,17 @@ class Kayleen:
     def is_killed(self):
         return self.status is KayleenStatus.killed
 
+    def start_snowboy(self):
+        print('Listening... Press Ctrl+C to exit')
+        self.detector.start(detected_callback=self.wake_up,
+                       interrupt_check=self.is_killed,
+                       sleep_time=0.03)
+
+
     def wake_up(self):
         # Player.play_ding_signal()
         logging.info("Zaczynam się budzić ...")
+        self.detector.terminate()
         self.status = KayleenStatus.initialising
         self.blinker.wakeup()
         self.status = KayleenStatus.working
@@ -103,6 +112,7 @@ class Kayleen:
 
     def __shut_down(self, signum=None, frame=None):
         logging.info("Przechodzę w niebyt ...")
+        self.detector.terminate()
         self.__sync_say(SentenceKey.shut_down)
         time.sleep(2)
         self.status = KayleenStatus.killed
@@ -110,6 +120,7 @@ class Kayleen:
     def __go_to_sleep(self):
         logging.info("Usypiam")
         self.status = KayleenStatus.sleeping
+        self.start_snowboy()
 
     def __sync_pure_text_say(self, text: str):
         self.blinker.listen()
@@ -221,14 +232,14 @@ def main():
             develop_mode = True
 
     kayleen = Kayleen(develop_mode)
+    kayleen.start_snowboy()
 
-    detector = SnowboyDecoder(sensitivity=0.5)
-    print('Listening... Press Ctrl+C to exit')
+    while True:
+        if kayleen.is_killed():
+            break
+        time.sleep(2)
 
-    detector.start(detected_callback=kayleen.wake_up,
-                   interrupt_check=kayleen.is_killed,
-                   sleep_time=0.03)
-    detector.terminate()
+
 
 
 if __name__ == '__main__':

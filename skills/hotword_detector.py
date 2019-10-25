@@ -3,6 +3,7 @@ import pyaudio
 import time
 import wave
 import os
+import sys
 import logging
 import platform
 from ctypes import *
@@ -38,6 +39,17 @@ def no_alsa_error():
     except:
         yield
         pass
+
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stdout = os.dup(1)
+    sys.stdout.flush()
+    os.dup2(devnull, 1)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(old_stdout, 1)
+        os.close(old_stdout)
 
 
 class RingBuffer(object):
