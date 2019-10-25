@@ -113,6 +113,8 @@ class Kayleen:
     def __shut_down(self, signum=None, frame=None):
         logging.info("Przechodzę w niebyt ...")
         self.detector.terminate()
+        while not self.detector.is_running():
+            time.sleep(0.05)
         self.__sync_say(SentenceKey.shut_down)
         time.sleep(2)
         self.status = KayleenStatus.killed
