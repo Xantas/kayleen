@@ -1,0 +1,22 @@
+Python 3.7+
+
+sudo apt install libasound-dev
+sudo apt install portaudio19-dev
+sudo apt install mpg123
+
+
+pip install wheel
+pip install pyaudio
+pip install pydub
+pip install --upgrade google-cloud-texttospeech
+pip install --upgrade google-cloud-speech
+pip install spidev
+pip install rpi.gpio
+
+set GOOGLE_APPLICATION_CREDENTIALS
+
+
+hotword:
+sudo apt-get install python-pyaudio python3-pyaudio sox
+sudo apt install swig
+sudo apt-get install libatlas-base-dev
