@@ -113,12 +113,28 @@ class VoiceCommandRecognizer:
             )
 
     def __record_voice(self) -> str:
-        if platform.system() == 'Darwin':
+        if self.develop_mode:
             return os.path.join(VOICE_INPUT_FILES_DIR, 'test_command.wav')
         else:
-            return self.__record_voice_raspi()
+            if platform.system() == 'Darwin':
+                return self.__record_voice_macos()
+            else:
+                return self.__record_voice_raspi()
+
+    def __record_voice_macos(self) -> str:
+        pass
 
     def __record_voice_raspi(self) -> str:
+        file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
+        args = ['arecord', '--quiet', '-d', RECORD_SECONDS, '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r',
+                str(SAMPLE_RATE),
+                '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
+        os.system(' '.join(args))
+        time.sleep(RECORD_SECONDS)
+        logging.debug("Próbka głosowa nagrana")
+        return file_name
+
+    def __record_voice_raspi_subprocess(self) -> str:
         file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
         proc_args = ['arecord', '--quiet', '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r', str(SAMPLE_RATE),
                      '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
