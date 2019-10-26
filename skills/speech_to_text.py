@@ -126,9 +126,8 @@ class VoiceCommandRecognizer:
 
     def __record_voice_raspi(self) -> str:
         file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
-        args = ['arecord', '--quiet', '-d', RECORD_SECONDS, '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r',
-                str(SAMPLE_RATE),
-                '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
+        args = ['arecord', '--quiet', '-d', str(RECORD_SECONDS), '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r',
+                str(SAMPLE_RATE), '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
         os.system(' '.join(args))
         time.sleep(RECORD_SECONDS)
         logging.debug("Próbka głosowa nagrana")
