@@ -129,7 +129,6 @@ class VoiceCommandRecognizer:
         args = ['arecord', '--quiet', '-d', str(RECORD_SECONDS), '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r',
                 str(SAMPLE_RATE), '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
         os.system(' '.join(args))
-        time.sleep(RECORD_SECONDS)
         logging.debug("Próbka głosowa nagrana")
         return file_name
 
