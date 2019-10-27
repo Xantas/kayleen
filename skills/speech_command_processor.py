@@ -20,6 +20,10 @@ class Reactor:
             'wyjdź': self.__exit_cmd,
             'zakończ': self.__exit_cmd,
             'głos': self.__change_voice_cmd,
+            'graj': self.__play_music,
+            'muzyka': self.__play_music,
+            'muzykę': self.__play_music,
+            'odtwarzaj': self.__play_music,
         }
 
     def run_task_from_recognized_text(self, recognized_text: str):
@@ -55,4 +59,5 @@ class Reactor:
     def __change_voice_cmd(self):
         self.command_bus.put(CommandFactory.create_change_voice_cmd())
 
-
+    def __play_music(self):
+        self.command_bus.put(CommandFactory.create_play_music_cmd())

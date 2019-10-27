@@ -1,3 +1,7 @@
+pyaudio
+pygame
+
+#########
 Python 3.7+
 
 sudo apt install libasound-dev
@@ -7,6 +11,7 @@ sudo apt install mpg123
 
 pip install wheel
 pip install pyaudio
+pip install pygame
 pip install pydub
 pip install --upgrade google-cloud-texttospeech
 pip install --upgrade google-cloud-speech

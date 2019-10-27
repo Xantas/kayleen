@@ -15,6 +15,7 @@ class SentenceKey(enum.Enum):
     list_voices = 10
     unrecognized_voice_model = 11
     present_voice = 12
+    playing_music = 13
 
 
 class Lang(enum.Enum):
@@ -38,6 +39,7 @@ pl_female = {
     SentenceKey.list_voices: 'Wybierz głos podając numer. Dostępne są: ',
     SentenceKey.unrecognized_voice_model: 'No takim głosem to ja nie potrafię mówić',
     SentenceKey.present_voice: 'To teraz porozmawiamy sobie inaczej',
+    SentenceKey.playing_music: 'Włączam odtwarzanie muzyki i idę malować paznokcie. Jak już będziesz miał dosyć naciśnij przycisk',
 }
 
 pl_male = {
@@ -53,6 +55,8 @@ pl_male = {
     SentenceKey.list_voices: 'Wybierz głos podając numer. Dostępne są: ',
     SentenceKey.unrecognized_voice_model: 'Takim głosem to ja nie potrafię mówić',
     SentenceKey.present_voice: 'Cieszę się, że wolisz pogadać po męsku',
+    SentenceKey.playing_music: 'Włączam odtwarzanie muzyki i idę na zaplecze na piwo. Jak już się znudzisz naciśnj przycisk',
+
 }
 
 en = {

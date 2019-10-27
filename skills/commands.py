@@ -12,6 +12,7 @@ class SystemCommandsDefinition(enum.Enum):
     recognized_voice_cmd = 5
     unrecognized_voice_cmd = 6
     change_voice = 7
+    play_music = 8
 
 
 class CommandConfirmationStatus(enum.Enum):
@@ -61,6 +62,14 @@ class SpeechCommand(BaseCommand):
 
 
 class CommandFactory:
+    @staticmethod
+    def create_play_music_cmd():
+        return CommandBusCommand(
+            command_type=SystemCommandsDefinition.play_music,
+            blocking_event=Event(),
+            is_blocking=True
+        )
+
     @staticmethod
     def create_change_voice_cmd():
         return CommandBusCommand(

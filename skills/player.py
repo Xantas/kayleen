@@ -2,6 +2,7 @@ import os
 import platform
 import wave
 import pyaudio
+from pygame import mixer
 import time
 from ctypes import *
 from contextlib import contextmanager
@@ -11,6 +12,7 @@ from definitions import SOUND_FILES_DIR
 
 SIGNAL_DING = os.path.join(SOUND_FILES_DIR, "ding.wav")
 SIGNAL_DONG = os.path.join(SOUND_FILES_DIR, "dong.wav")
+DEMO_SONG = os.path.join(SOUND_FILES_DIR, "now_we_are_free_cut.mp3")
 
 
 def py_error_handler(filename, line, function, err, fmt):
@@ -35,6 +37,17 @@ def no_alsa_error():
 
 
 class Player:
+    def __init__(self):
+        self.mixer = mixer
+        self.mixer.init()
+
+    def play_music(self):
+        self.mixer.music.load(DEMO_SONG)
+        self.mixer.music.play()
+
+    def stop_music(self):
+        self.mixer.music.stop()
+
     @staticmethod
     def play_ding_signal():
         Player.play_wav_file(SIGNAL_DING)

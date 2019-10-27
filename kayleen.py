@@ -67,6 +67,7 @@ class Kayleen:
         )
         self.blinker = Blinker()
         self.detector = SnowboyDecoder(sensitivity=0.5)
+        self.player = Player()
 
         self.thread = threading.Thread(target=self.__run)
         self.thread.daemon = True
@@ -93,16 +94,20 @@ class Kayleen:
         return self.status is KayleenStatus.killed
 
     def start_snowboy(self):
-        print('Listening... Press Ctrl+C to exit')
-        self.detector.start(detected_callback=self.wake_up,
-                       interrupt_check=self.is_killed,
-                       sleep_time=0.03)
-
+        if not self.develop_mode:
+            print('Listening... Press Ctrl+C to exit')
+            self.detector.start(detected_callback=self.wake_up,
+                                interrupt_check=self.is_killed,
+                                sleep_time=0.03)
+        else:
+            input("Naciśnij enter aby zasymulowac budzenie ...")
+            self.wake_up()
 
     def wake_up(self):
         # Player.play_ding_signal()
         logging.info("Zaczynam się budzić ...")
-        self.detector.terminate()
+        if not self.develop_mode:
+            self.detector.terminate()
         self.status = KayleenStatus.initialising
         self.blinker.wakeup()
         self.status = KayleenStatus.working
@@ -112,7 +117,8 @@ class Kayleen:
 
     def __shut_down(self, signum=None, frame=None):
         logging.info("Przechodzę w niebyt ...")
-        self.detector.terminate()
+        if not self.develop_mode:
+            self.detector.terminate()
         while self.detector.is_running():
             print("czekam")
             time.sleep(0.05)
@@ -196,6 +202,23 @@ class Kayleen:
 
         self.__go_to_sleep()
 
+    def __play_music(self):
+        logging.info("Odtwarzam muzykę")
+        self.__sync_say(SentenceKey.playing_music)
+        self.player.play_music()
+
+        if platform.system() == 'Darwin':
+            input("Wcisnij enter aby przerwać ...")
+        else:
+            while True:
+                state = GPIO.input(BUTTON)
+                if not state:
+                    break
+                time.sleep(0.05)
+
+        self.player.stop_music()
+        self.wake_up()
+
     def __handle(self, command: CommandBusCommand):
         if command.confirmation_status is CommandConfirmationStatus.unprocessed:
             self.__confirm_command(command)
@@ -223,6 +246,9 @@ class Kayleen:
         elif command.command_type is SystemCommandsDefinition.change_voice:
             self.__change_voice_command()
             command.blocking_event.set()
+        elif command.command_type is SystemCommandsDefinition.play_music:
+            self.__play_music()
+            command.blocking_event.set()
 
 
 def main():
@@ -242,8 +268,6 @@ def main():
         if kayleen.is_killed():
             break
         time.sleep(2)
-
-
 
 
 if __name__ == '__main__':
