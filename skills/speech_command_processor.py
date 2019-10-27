@@ -18,6 +18,7 @@ class Reactor:
 
         self.voice_commands_definitions = {
             'wyjdź': self.__exit_cmd,
+            'spadaj': self.__exit_cmd,
             'zakończ': self.__exit_cmd,
             'głos': self.__change_voice_cmd,
             'graj': self.__play_music,
