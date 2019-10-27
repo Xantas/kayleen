@@ -29,7 +29,7 @@ class Reactor:
 
     def run_task_from_recognized_text(self, recognized_text: str):
         for txt, cmd in self.voice_commands_definitions.items():
-            if recognized_text.find(txt) >= 0:
+            if recognized_text.lower().find(txt) >= 0:
                 cmd()
                 return
         self.command_bus.put(CommandFactory.create_unrecognized_voice_cmd())
