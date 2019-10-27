@@ -18,7 +18,9 @@ class Reactor:
 
         self.voice_commands_definitions = {
             'wyjdź': self.__exit_cmd,
+            'Wyjdź': self.__exit_cmd,
             'spadaj': self.__exit_cmd,
+            'Spadaj': self.__exit_cmd,
             'zakończ': self.__exit_cmd,
             'głos': self.__change_voice_cmd,
             'graj': self.__play_music,
@@ -29,7 +31,7 @@ class Reactor:
 
     def run_task_from_recognized_text(self, recognized_text: str):
         for txt, cmd in self.voice_commands_definitions.items():
-            if recognized_text.lower().find(txt) >= 0:
+            if recognized_text.find(txt) >= 0:
                 cmd()
                 return
         self.command_bus.put(CommandFactory.create_unrecognized_voice_cmd())
