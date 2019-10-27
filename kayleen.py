@@ -147,6 +147,7 @@ class Kayleen:
 
     def __syc_listen_to_my_voice(self):
         self.blinker.speak()
+        Player.play_dong_signal()
         result = self.voice_commands_recognizer.sync_listen_me(self.language)
         self.blinker.off()
         return result

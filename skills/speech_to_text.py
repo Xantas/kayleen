@@ -6,17 +6,21 @@ import logging
 import queue
 import uuid
 import subprocess
+import wave
+import pyaudio
+import io
 from skills.commands import CommandFactory
 from skills.sentences import Lang
 from definitions import VOICE_INPUT_FILES_DIR
 from google.cloud import speech_v1
 from google.cloud.speech_v1 import enums
-import io
 
 SAMPLE_RATE = 16000
 SAMPLE_FORMAT = 'S16_LE'
 CHANNELS = 1
 RECORD_SECONDS = 5
+SAMPLE_FORMAT_PYAUDIO = pyaudio.paInt16
+CHUNK = 1024
 
 
 class GoogleVoiceRecognizer:
@@ -122,10 +126,32 @@ class VoiceCommandRecognizer:
                 return self.__record_voice_raspi()
 
     def __record_voice_macos(self) -> str:
-        pass
+        file_name = self.__get_record_file_name()
+        p = pyaudio.PyAudio()  # Create an interface to PortAudio
+        stream = p.open(format=SAMPLE_FORMAT_PYAUDIO,
+                        channels=CHANNELS,
+                        rate=SAMPLE_RATE,
+                        frames_per_buffer=CHUNK,
+                        input=True)
+        frames = []
+        for i in range(0, int(SAMPLE_RATE / CHUNK * RECORD_SECONDS)):
+            data = stream.read(CHUNK)
+            frames.append(data)
+
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+
+        wf = wave.open(file_name, 'wb')
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(p.get_sample_size(SAMPLE_FORMAT_PYAUDIO))
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(b''.join(frames))
+        wf.close()
+        return file_name
 
     def __record_voice_raspi(self) -> str:
-        file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
+        file_name = self.__get_record_file_name()
         args = ['arecord', '--quiet', '-d', str(RECORD_SECONDS), '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r',
                 str(SAMPLE_RATE), '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
         os.system(' '.join(args))
@@ -133,7 +159,7 @@ class VoiceCommandRecognizer:
         return file_name
 
     def __record_voice_raspi_subprocess(self) -> str:
-        file_name = os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
+        file_name = self.__get_record_file_name()
         proc_args = ['arecord', '--quiet', '-D', 'plughw:1', '-c{}'.format(CHANNELS), '-r', str(SAMPLE_RATE),
                      '-f', SAMPLE_FORMAT, '-t', 'wav', '-V', 'mono', file_name]
         recording_process = subprocess.Popen(proc_args, shell=False, preexec_fn=os.setsid)
@@ -145,3 +171,6 @@ class VoiceCommandRecognizer:
         print(" ")
         logging.debug("Próbka głosowa nagrana")
         return file_name
+
+    def __get_record_file_name(self):
+        return os.path.join(VOICE_INPUT_FILES_DIR, str(uuid.uuid4()) + '.wav')
